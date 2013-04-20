@@ -7,7 +7,6 @@ var fs = require('fs');
 var crypto = require('crypto');
 var exec = require('child_process').exec;
 var _ = require('underscore');
-var logger = require('./logger');
 
 /**
  * Default options for the captcha include configuration for LaTeX and
@@ -33,6 +32,10 @@ var default_options = {
  */
 function captcha(options) {
 	this.parseOptions(_.extend({}, default_options, options));
+	this.operators.push(new Operator(5, true, '$1 + $2', 2, function(a, b) { return a+b; }));
+	this.operators.push(new Operator(5, false, '$1 - $2', 2, function(a, b) { return a-b; }));
+	this.operators.push(new Operator(3, true, '$1 \\times $2', 2, function(a, b) { return a*b; }));
+	this.operators.push(new Operator(3, false, '\\frac{$1}{$2}', 2, function(a, b) { return a/b; }));
 }
 
 // Add in member data for the captcha class
@@ -61,9 +64,10 @@ _.extend(captcha.prototype, {
 		var key = hash.digest('hex');
 		var file = this.options.path + '/' + key;
 		this.captchas[key] = {
+			exp : exp,
 			latex : latex,
 			answer : answer,
-			file : file + '1.png'
+			file : file + '.png'
 		};
 
 		// Write out latex file, with a nasty callback chain
@@ -86,7 +90,7 @@ _.extend(captcha.prototype, {
 						failure(err);
 					}
 					else {
-						exec(that.dvipngcmd + ' -o '+file+'1.png ' + file + '.dvi', procopts, function(err) {
+						exec(that.dvipngcmd + ' -o '+file+'.png ' + file + '.dvi', procopts, function(err) {
 							if (err !== null) {
 								that.captchas[key] = undefined;
 								failure(err);
@@ -99,6 +103,50 @@ _.extend(captcha.prototype, {
 				});
 			}
 		});
+	},
+
+	/**
+	 * Retrieves the image path for a given key, to be called after success is invoked through generate()
+	 * @param key The key for which to retrieve the image path
+	 * @return string The path to the image
+	 */
+	getImage : function(key) {
+		if (this.captchas[key])
+			return this.captchas[key].file;
+		else
+			return null;
+	},
+
+	/**
+	 * Checks an answer for a given captcha against the key, with rounding to the given number of decimal
+	 * places
+	 * @param key The key to check for
+	 * @param answer The answer to compare
+	 * @param places The number of decimal places to round to
+	 * @return Boolean True if the answer matches, false otherwise
+	 */
+	check : function(key, answer, places) {
+		if (this.captchas[key]) {
+			var shift = Math.pow(10, places);
+			var rounded = Math.round(this.captchas[key].answer*shift);
+			var adjusted = Math.round(answer*shift);
+			return adjusted == rounded;
+		}
+		return false;
+	},
+
+	/**
+	 * Cleans up the files generated for a specific key and removes the key from the list of captchas
+	 * @param key The key to clean up
+	 */
+	cleanup : function(key) {
+		var that = this;
+		if (this.captchas[key]) {
+			this.captchas[key] = undefined;
+			exec('rm ' + _.map(['.tex', '.aux', '.dvi', '.png', '.log'], function(v) {
+				return that.options.path + '/' + key + v;
+			}));
+		}
 	},
 
 	/**
@@ -239,7 +287,7 @@ _.extend(captcha.prototype, {
 			var i;
 			for (i = 0; i < exp.arity; ++i) {
 				var tp = this.precedence(expression[expression.length-1]);
-				if (tp > exp.precedence)
+				if (tp > exp.precedence || !exp.associative)
 					args.push('('+this.latex(expression)+')');
 				else
 					args.push(this.latex(expression));
@@ -284,25 +332,19 @@ _.extend(captcha.prototype, {
  * This represents a single operator that can be used to construct math expressions randomly, including
  * information on arity, latex printing, and evaluation in javascript.
  * @param precedence The precedence of this operator, a higher number is lower precedence
+ * @param associative Is this operator associative?
  * @param latex The latex string to insert for this operator, with $n standing in for the nth argument
  * @param arity The arity of this operator
  * @param op A function that can be used to evaluate this operator
  */
-function Operator(precedence, latex, arity, op) {
+function Operator(precedence, associative, latex, arity, op) {
 	this.precedence = precedence;
+	this.associative = associative;
 	this.latex = latex;
 	this.arity = arity;
 	this.op = op;
 }
 
-c = new captcha({});
-c.operators.push(new Operator(5, '$1 + $2', 2, function(a, b) { return a+b; }));
-c.operators.push(new Operator(5, '$1 - $2', 2, function(a, b) { return a-b; }));
-c.operators.push(new Operator(3, '$1 \\times $2', 2, function(a, b) { return a*b; }));
-c.operators.push(new Operator(3, '\\frac{$1}{$2}', 2, function(a, b) { return a/b; }));
-
-c.generate(function(key) {
-	logger.info(key, 'Key');
-}, function(err) {
-	logger.var_dump(err);
-});
+// Export the two class definitions for people to use
+module.exports.CAPTCHA = captcha;
+module.exports.Operator = Operator;
