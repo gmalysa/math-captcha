@@ -5,6 +5,7 @@
 
 var fs = require('fs');
 var crypto = require('crypto');
+var exec = require('child_process').exec;
 var _ = require('underscore');
 var logger = require('./logger');
 
@@ -13,13 +14,13 @@ var logger = require('./logger');
  * dvipng.
  */
 var default_options = {
-	'tex'			: 'latex',
-	'dvipng'		: 'dvipng',
+	'tex'			: '/usr/bin/latex',
+	'dvipng'		: '/usr/bin/dvipng',
 	'fg'			: '#ffffff',
 	'bg'			: 'Transparent',
 	'bounding'		: 'tight',
 	'resolution'	: 100,
-	'path'			: '/tmp',
+	'path'			: '/tmp/math-captcha',
 	'minOps'		: 3,
 	'maxOps'		: 5,
 	'values'		: [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -40,6 +41,7 @@ _.extend(captcha.prototype, {
 	dvipngcmd : '',			//!< Command used to invoke dvipng to produce a PNG to send to the user
 	texcmd : '',			//!< Command used to invoke LaTeX to produce a dvi file
 	operators : [],			//!< Array of operators that we can build expressions from
+	captchas : {},			//!< Map of captchas that are in the wild
 
 	/**
 	 * Generates a new random math problem, writes it to a png, saves the relevant information locally,
@@ -49,7 +51,54 @@ _.extend(captcha.prototype, {
 	 * @param failure Callback to be called if there is a problem, failure(err)
 	 */
 	generate : function(success, failure) {
-		
+		var exp = this.generateExpression(this.options.minOps, this.options.maxOps, this.options.values);
+		var latex = this.wrapLatex(this.latex([].concat(exp)));
+		var answer = this.solve([].concat(exp));
+
+		// Create information/tracking structure
+		var hash = crypto.createHash('md5');
+		hash.update(latex, 'utf8');
+		var key = hash.digest('hex');
+		var file = this.options.path + '/' + key;
+		this.captchas[key] = {
+			latex : latex,
+			answer : answer,
+			file : file + '1.png'
+		};
+
+		// Write out latex file, with a nasty callback chain
+		var that = this;
+		var procopts = {
+			encoding : 'utf8',
+			env : process.env
+		};
+
+		fs.writeFile(file+'.tex', latex, function(err) {
+			if (err) {
+				that.captchas[key] = undefined;
+				failure(err);
+			}
+			else {
+				// Invoke tex
+				exec(that.texcmd + ' ' + file+'.tex', procopts, function(err) {
+					if (err !== null) {
+						that.captchas[key] = undefined;
+						failure(err);
+					}
+					else {
+						exec(that.dvipngcmd + ' -o '+file+'1.png ' + file + '.dvi', procopts, function(err) {
+							if (err !== null) {
+								that.captchas[key] = undefined;
+								failure(err);
+							}
+							else {
+								success(key);
+							}
+						});
+					}
+				});
+			}
+		});
 	},
 
 	/**
@@ -57,7 +106,7 @@ _.extend(captcha.prototype, {
 	 * @param options Object whose keys and values are the options for this captcha instance
 	 */
 	parseOptions : function(options) {
-		this.texcmd = options.tex;
+		this.texcmd = options.tex + ' -halt-on-error -output-directory='+options.path;
 		this.dvipngcmd = options.dvipng + ' -fg "' + this.parseColor(options.fg) + '" -bg "' + this.parseColor(options.bg) + '" -T ' + options.bounding + ' -D ' + options.resolution;
 		this.options = options;
 	},
@@ -99,6 +148,20 @@ _.extend(captcha.prototype, {
 		blue = new Number(blue);
 
 		return 'rgb ' + red.toFixed(3) + ' ' + green.toFixed(3) + ' ' + blue.toFixed(3);
+	},
+
+	/**
+	 * Wraps a math-only string in some LaTeX document scaffolding
+	 * @param math The math string to put inside the document
+	 * @return String the entire LaTeX document
+	 */
+	wrapLatex : function(math) {
+		return '\\documentclass[12pt]{article}\n' +
+				'\\usepackage{amsmath}\n' +
+				'\\pagestyle{empty}\n\n' +
+				'\\begin{document}\n\n' +
+				'\\begin{displaymath}\n' + math + '\n\\end{displaymath}\n\n' +
+				'\\end{document}';
 	},
 
 	/**
@@ -236,9 +299,10 @@ c = new captcha({});
 c.operators.push(new Operator(5, '$1 + $2', 2, function(a, b) { return a+b; }));
 c.operators.push(new Operator(5, '$1 - $2', 2, function(a, b) { return a-b; }));
 c.operators.push(new Operator(3, '$1 \\times $2', 2, function(a, b) { return a*b; }));
-c.operators.push(new Operator(3, '\\fract{$1}{$2}', 2, function(a, b) { return a/b; }));
+c.operators.push(new Operator(3, '\\frac{$1}{$2}', 2, function(a, b) { return a/b; }));
 
-var x = c.generateExpression(3, 4, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-logger.var_dump(x);
-logger.debug(c.latex([].concat(x)));
-logger.debug(c.solve([].concat(x)));
+c.generate(function(key) {
+	logger.info(key, 'Key');
+}, function(err) {
+	logger.var_dump(err);
+});
