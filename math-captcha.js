@@ -36,16 +36,18 @@ function captcha(options) {
 	this.operators.push(new Operator(5, false, '$1 - $2', 2, function(a, b) { return a-b; }));
 	this.operators.push(new Operator(3, true, '$1 \\times $2', 2, function(a, b) { return a*b; }));
 	this.operators.push(new Operator(3, false, '\\frac{$1}{$2}', 2, function(a, b) { return a/b; }));
+
+	// Create instance data
+	this.options = {};				//!< Options listing
+	this.dvipngcmd = '';			//!< Command used to invoke dvipng to produce a PNG to send to the user
+	this.texcmd = '';				//!< Command used to invoke LaTeX to produce a dvi file
+	this.operators = [];			//!< Array of operators that we can build expressions from
+	this.captchas = {};				//!< Map of captchas that are in the wild
+
 }
 
 // Add in member data for the captcha class
 _.extend(captcha.prototype, {
-	options : {},			//!< Options listing
-	dvipngcmd : '',			//!< Command used to invoke dvipng to produce a PNG to send to the user
-	texcmd : '',			//!< Command used to invoke LaTeX to produce a dvi file
-	operators : [],			//!< Array of operators that we can build expressions from
-	captchas : {},			//!< Map of captchas that are in the wild
-
 	/**
 	 * Generates a new random math problem, writes it to a png, saves the relevant information locally,
 	 * and then passes a key to the given callback. This key can be used to get the png, check answers,
