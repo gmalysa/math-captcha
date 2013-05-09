@@ -1,14 +1,12 @@
 {
   "name"          : "math-captcha",
   "version"       : "0.1.0",
-  "description"   : "generates simple math questions for use as a captcha",
-  "keywords"      : ["captcha", "image", "math"],
+  "description"   : "generates math questions for use as a captcha via latex",
+  "keywords"      : ["captcha", "image", "math", "latex", "dvipng"],
   "author"        : "Greg Malysa <gmalysa@stanford.edu>",
   "repository"    : { "type" : "git", "url" : "https://github.com/gmalysa/math-captcha.git" },
   "licenses"      : ["MIT"],
   "main"          : "./math-captcha",
-  "scripts"       : { "test": "node test/*-test.js" },
-  "directories"   : { "test": "./test" },
   "dependencies"  : { "underscore" : ">= 1.4.0" },
   "engines"       : { "node": ">= 0.8.20" }
 }
