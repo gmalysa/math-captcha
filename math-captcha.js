@@ -22,7 +22,8 @@ var default_options = {
 	'path'			: '/tmp/math-captcha',
 	'minOps'		: 3,
 	'maxOps'		: 5,
-	'values'		: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+	'values'		: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+	'cleanupTime'	: 600
 };
 
 /**
@@ -98,6 +99,7 @@ _.extend(captcha.prototype, {
 								failure(err);
 							}
 							else {
+								that.captchas[key].handler = setTimeout(_.bind(that.cleanup, that, key), that.options.cleanupTime*1000);
 								success(key);
 							}
 						});
@@ -144,6 +146,7 @@ _.extend(captcha.prototype, {
 	cleanup : function(key) {
 		var that = this;
 		if (this.captchas[key]) {
+			clearTimeout(this.captchas[key].handler);
 			this.captchas[key] = undefined;
 			exec('rm ' + _.map(['.tex', '.aux', '.dvi', '.png', '.log'], function(v) {
 				return that.options.path + '/' + key + v;
