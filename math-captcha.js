@@ -32,12 +32,6 @@ var default_options = {
  * @param options The list of options to set for this captcha instance
  */
 function captcha(options) {
-	this.parseOptions(_.extend({}, default_options, options));
-	this.operators.push(new Operator(5, true, '$1 + $2', 2, function(a, b) { return a+b; }));
-	this.operators.push(new Operator(5, false, '$1 - $2', 2, function(a, b) { return a-b; }));
-	this.operators.push(new Operator(3, true, '$1 \\times $2', 2, function(a, b) { return a*b; }));
-	this.operators.push(new Operator(3, false, '\\frac{$1}{$2}', 2, function(a, b) { return a/b; }));
-
 	// Create instance data
 	this.options = {};				//!< Options listing
 	this.dvipngcmd = '';			//!< Command used to invoke dvipng to produce a PNG to send to the user
@@ -45,6 +39,12 @@ function captcha(options) {
 	this.operators = [];			//!< Array of operators that we can build expressions from
 	this.captchas = {};				//!< Map of captchas that are in the wild
 
+	// Cofnigure instance
+	this.parseOptions(_.extend({}, default_options, options));
+	this.operators.push(new Operator(5, true, '$1 + $2', 2, function(a, b) { return a+b; }));
+	this.operators.push(new Operator(5, false, '$1 - $2', 2, function(a, b) { return a-b; }));
+	this.operators.push(new Operator(3, true, '$1 \\times $2', 2, function(a, b) { return a*b; }));
+	this.operators.push(new Operator(3, false, '\\frac{$1}{$2}', 2, function(a, b) { return a/b; }));
 }
 
 // Add in member data for the captcha class
@@ -144,13 +144,12 @@ _.extend(captcha.prototype, {
 	 * @param key The key to clean up
 	 */
 	cleanup : function(key) {
-		var that = this;
 		if (this.captchas[key]) {
 			clearTimeout(this.captchas[key].handler);
 			this.captchas[key] = undefined;
 			exec('rm ' + _.map(['.tex', '.aux', '.dvi', '.png', '.log'], function(v) {
-				return that.options.path + '/' + key + v;
-			}));
+				return this.options.path + '/' + key + v;
+			}, this));
 		}
 	},
 
