@@ -41,10 +41,10 @@ function captcha(options) {
 
 	// Cofnigure instance
 	this.parseOptions(_.extend({}, default_options, options));
-	this.operators.push(new Operator(5, true, '$1 + $2', 2, function(a, b) { return a+b; }));
-	this.operators.push(new Operator(5, false, '$1 - $2', 2, function(a, b) { return a-b; }));
-	this.operators.push(new Operator(3, true, '$1 \\times $2', 2, function(a, b) { return a*b; }));
-	this.operators.push(new Operator(3, false, '\\frac{$1}{$2}', 2, function(a, b) { return a/b; }));
+	this.operators.push(new Operator(5, true, true, '$1 + $2', 2, function(a, b) { return a+b; }));
+	this.operators.push(new Operator(5, false, true, '$1 - $2', 2, function(a, b) { return a-b; }));
+	this.operators.push(new Operator(3, true, true, '$1 \\times $2', 2, function(a, b) { return a*b; }));
+	this.operators.push(new Operator(3, false, false, '\\frac{$1}{$2}', 2, function(a, b) { return a/b; }));
 }
 
 // Add in member data for the captcha class
@@ -291,7 +291,7 @@ _.extend(captcha.prototype, {
 			var i;
 			for (i = 0; i < exp.arity; ++i) {
 				var tp = this.precedence(expression[expression.length-1]);
-				if (tp > exp.precedence || !exp.associative)
+				if (exp.doGroup && i > 0 && (tp != 0) && (tp > exp.precedence || !exp.associative))
 					args.push('('+this.latex(expression)+')');
 				else
 					args.push(this.latex(expression));
@@ -337,13 +337,15 @@ _.extend(captcha.prototype, {
  * information on arity, latex printing, and evaluation in javascript.
  * @param precedence The precedence of this operator, a higher number is lower precedence
  * @param associative Is this operator associative?
+ * @param doGroup If necessary, should this operator group arguments by surrounding with ()? (false for operators whose printing already makes grouping clear, like the fraction bar for division)
  * @param latex The latex string to insert for this operator, with $n standing in for the nth argument
  * @param arity The arity of this operator
  * @param op A function that can be used to evaluate this operator
  */
-function Operator(precedence, associative, latex, arity, op) {
+function Operator(precedence, associative, doGroup, latex, arity, op) {
 	this.precedence = precedence;
 	this.associative = associative;
+	this.doGroup = doGroup;
 	this.latex = latex;
 	this.arity = arity;
 	this.op = op;
