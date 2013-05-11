@@ -1,6 +1,6 @@
 {
   "name"          : "math-captcha",
-  "version"       : "0.1.0",
+  "version"       : "0.1.1",
   "description"   : "generates math questions for use as a captcha via latex",
   "keywords"      : ["captcha", "image", "math", "latex", "dvipng"],
   "author"        : "Greg Malysa <gmalysa@stanford.edu>",
