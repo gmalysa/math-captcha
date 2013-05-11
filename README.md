@@ -13,6 +13,15 @@ npm install math-captcha
 
 You must have several additional dependencies installed on your system, including [LaTeX](http://www.latex-project.org/) and [dvipng](http://www.nongnu.org/dvipng/). See the respective project sites for information on how to install these programs.
 
+## Demo
+
+There is a simple demo included that displays and tests captcha images. You can also use this as a reference for how to use math-captcha in your code. Run it with:
+
+```
+$ cd node_modules/math-captcha
+$ node demo
+```
+
 ## Usage
 
 This package only creates and manages the images for use with a CAPTCHA. You are responsible for hooking it into your web server application. As a result, the interface is very simple and limited to only a few functions.
